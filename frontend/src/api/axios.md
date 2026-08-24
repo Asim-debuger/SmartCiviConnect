@@ -1,0 +1,1 @@
+This file serves as a simple barrel file, re-exporting the `default` (the `api` instance) and `setupAxios` function from `axiosInstance.js`. This allows other parts of the application to import the configured Axios instance from a cleaner path (`api/axios` instead of `api/axiosInstance`).
