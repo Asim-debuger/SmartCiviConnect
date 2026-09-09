@@ -23,7 +23,21 @@ function escapeHtml(value) {
   }[character]));
 }
 
-const contactLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 8, standardHeaders: true, legacyHeaders: false });
+const contactLimiter = rateLimit({ 
+  windowMs: 15 * 60 * 1000, 
+  limit: 8, 
+  standardHeaders: true, 
+  legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for localhost during development
+    const isLocalhost = req.hostname === 'localhost' || 
+                        req.hostname === '127.0.0.1' || 
+                        req.ip === '127.0.0.1' || 
+                        req.ip === '::1';
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    return isLocalhost && isDevelopment;
+  }
+});
 
 async function submitContact(req, res, next) {
   try {
@@ -40,14 +54,19 @@ async function submitContact(req, res, next) {
     }
 
     const destination = supportInbox();
-    await sendEmail({
+    
+    // Send email asynchronously - don't block the response
+    sendEmail({
       to: destination,
       subject: `Public website contact from ${name}`,
       html: `<h2>New SmartCiviConnect enquiry</h2><p><strong>Name:</strong> ${escapeHtml(name)}</p><p><strong>Email:</strong> ${escapeHtml(email)}</p><p><strong>Phone:</strong> ${escapeHtml(phone || "Not provided")}</p><p><strong>Message:</strong></p><p>${escapeHtml(message)}</p>`,
       replyTo: email,
+    }).catch((emailError) => {
+      console.error("Email service error (non-blocking):", emailError.message);
+      // Log but don't fail the request
     });
 
-    return res.json({ success: true, message: "Message received" });
+    return res.json({ success: true, message: "Message received successfully" });
   } catch (error) {
     next(error);
   }
